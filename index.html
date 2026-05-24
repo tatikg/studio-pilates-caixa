@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Studio Pilates — Caixa</title>
-<link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🤸</text></svg>'>
+<link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🧘</text></svg>'>
 <script>
   // Rede de segurança: se algo falhar, mostra o erro na tela em vez de ficar em branco.
   function _mostraErro(msg){
@@ -71,8 +71,8 @@ const CORES = ["#5E7E62","#C2784E","#7B8FA1","#B8923F","#A56B7D","#6E8B8E","#9C7
 
 const brl = (n) => (Number(n)||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
 const brlK = (n) => n>=1000 ? "R$ "+(n/1000).toFixed(1).replace(".",",")+"k" : brl(n);
-const fmtData = (iso) => { if(!iso) return "–"; const d=new Date(iso); return isNaN(d.getTime())?"–":d.toLocaleDateString("pt-BR"); };
-const fmtDataHora = (iso) => { if(!iso) return ""; const d=new Date(iso); return isNaN(d.getTime())?"":d.toLocaleString("pt-BR"); };
+// Formata data YYYY-MM-DD como DD/MM/AAAA sem cair na armadilha de fuso horário
+const fmtDataPag = (s) => { if(!s) return "–"; const m=String(s).slice(0,10).match(/^(\d{4})-(\d{2})-(\d{2})$/); return m?`${m[3]}/${m[2]}/${m[1]}`:"–"; };
 
 /* ── Ícones SVG inline ─────────────────────────────────────────────────── */
 const Ic = ({d, size=18, color="currentColor", fill="none"}) => (
@@ -87,6 +87,7 @@ const I = {
   users:(p)=><Ic {...p} d={<><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></>}/>,
   plus:(p)=><Ic {...p} d={<><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></>}/>,
   x:(p)=><Ic {...p} d={<><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>}/>,
+  edit:(p)=><Ic {...p} d={<><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></>}/>,
   search:(p)=><Ic {...p} d={<><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></>}/>,
   up:(p)=><Ic {...p} d={<><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></>}/>,
   cal:(p)=><Ic {...p} d={<><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></>}/>,
@@ -166,7 +167,7 @@ function App({ sessao }){
   const [lancs,setLancs]=useState([]);
   const [carregando,setCarregando]=useState(true);
   const [erro,setErro]=useState("");
-  const [modal,setModal]=useState(false);
+  const [modalLanc,setModalLanc]=useState(null); // null=fechado | "novo" | objeto p/ editar
 
   async function carregar(){
     setCarregando(true); setErro("");
@@ -180,9 +181,11 @@ function App({ sessao }){
   }
   useEffect(()=>{ carregar(); },[]);
 
-  async function addLancamento(l){
-    const { error } = await sb.from("lancamentos").insert([l]);
-    if(error){ alert("Erro ao salvar: "+error.message); return false; }
+  async function salvarLancamento(dados,id){
+    let res;
+    if(id) res = await sb.from("lancamentos").update(dados).eq("id",id);
+    else   res = await sb.from("lancamentos").insert([dados]);
+    if(res.error){ alert("Erro ao salvar: "+res.error.message); return false; }
     await carregar(); return true;
   }
   async function removerLancamento(id){
@@ -229,7 +232,7 @@ function App({ sessao }){
             </button> );})}
         </nav>
         <div className="p-3 space-y-2" style={{borderTop:`1px solid ${C.borderSoft}`}}>
-          <button onClick={()=>setModal(true)}
+          <button onClick={()=>setModalLanc("novo")}
             className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold text-white transition hover:opacity-90"
             style={{background:C.terra}}><I.plus size={17} color="#fff"/> Novo lançamento</button>
           <div className="flex items-center justify-between px-1 pt-1">
@@ -255,15 +258,16 @@ function App({ sessao }){
           {!carregando && erro && <ErroBox msg={erro} onTentar={carregar}/>}
           {!carregando && !erro && <>
             {view==="dashboard"  && <Dashboard lancs={lancs} profs={profs} corDe={corDe}/>}
-            {view==="lancamentos"&& <Lancamentos lancs={lancs} profs={profs} corDe={corDe} onAdd={()=>setModal(true)} onRemover={removerLancamento}/>}
+            {view==="lancamentos"&& <Lancamentos lancs={lancs} profs={profs} corDe={corDe} onAdd={()=>setModalLanc("novo")} onEditar={(l)=>setModalLanc(l)} onRemover={removerLancamento}/>}
             {view==="resultado"  && <Resultado lancs={lancs} profs={profs} corDe={corDe}/>}
             {view==="pacientes"  && <Pacientes lancs={lancs} pacientes={pacientes} profs={profs} corDe={corDe} onAdd={addPaciente}/>}
           </>}
         </div>
       </main>
 
-      {modal && <ModalLancamento profs={profs} pacientes={pacientes} onClose={()=>setModal(false)}
-                   onSave={async(l)=>{ const ok=await addLancamento(l); if(ok) setModal(false); }}/>}
+      {modalLanc && <ModalLancamento lancamento={modalLanc==="novo"?null:modalLanc} profs={profs} pacientes={pacientes}
+                   onClose={()=>setModalLanc(null)}
+                   onSave={async(dados,id)=>{ const ok=await salvarLancamento(dados,id); if(ok) setModalLanc(null); }}/>}
     </div>
   );
 }
@@ -424,13 +428,23 @@ function Dashboard({lancs,profs,corDe}){
 }
 
 /* ── LANÇAMENTOS ───────────────────────────────────────────────────────── */
-function Lancamentos({lancs,profs,corDe,onAdd,onRemover}){
+function Lancamentos({lancs,profs,corDe,onAdd,onEditar,onRemover}){
   const [fProf,setFProf]=useState("todas"); const [fMes,setFMes]=useState("todos"); const [busca,setBusca]=useState("");
+  const [ordPag,setOrdPag]=useState(null); // null=padrão | "desc" | "asc"
+  function clicarPagamento(){ setOrdPag(o=> o==="desc" ? "asc" : o==="asc" ? null : "desc"); }
   const filtrados=useMemo(()=>lancs
     .filter(l=>fProf==="todas"||l.profissional_id===fProf)
     .filter(l=>fMes==="todos"||l.mes===Number(fMes))
     .filter(l=>(l.paciente||"").toLowerCase().includes(busca.toLowerCase()))
-    .sort((a,b)=>a.mes-b.mes||(a.paciente||"").localeCompare(b.paciente||"")),[lancs,fProf,fMes,busca]);
+    .sort((a,b)=>{
+      if(ordPag){
+        const da=a.data_pagamento||"", db=b.data_pagamento||"";
+        if(da===db) return (a.paciente||"").localeCompare(b.paciente||"");
+        if(!da) return 1; if(!db) return -1;            // sem data sempre por último
+        return ordPag==="desc" ? db.localeCompare(da) : da.localeCompare(db);
+      }
+      return a.mes-b.mes||(a.paciente||"").localeCompare(b.paciente||"");
+    }),[lancs,fProf,fMes,busca,ordPag]);
   const total=filtrados.reduce((s,l)=>s+Number(l.valor_bruto),0);
   const sel={background:C.surface,border:`1px solid ${C.border}`,color:C.ink,borderRadius:10,padding:"8px 12px",fontSize:13};
   return (
@@ -461,7 +475,11 @@ function Lancamentos({lancs,profs,corDe,onAdd,onRemover}){
           <table className="w-full" style={{fontSize:13}}>
             <thead><tr style={{color:C.inkFaint,textAlign:"left"}}>
               <th className="px-5 py-2.5 font-medium">Paciente</th><th className="px-5 py-2.5 font-medium">Origem</th>
-              <th className="px-5 py-2.5 font-medium">Mês</th><th className="px-5 py-2.5 font-medium">Registrado em</th><th className="px-5 py-2.5 font-medium" style={{textAlign:"right"}}>Valor</th><th className="px-3 py-2.5"></th>
+              <th className="px-5 py-2.5 font-medium">Mês</th>
+              <th className="px-5 py-2.5 font-medium" style={{cursor:"pointer",userSelect:"none"}} onClick={clicarPagamento} title="Clique para ordenar por data">
+                <span className="inline-flex items-center gap-1" style={{color:ordPag?C.sageDeep:"inherit"}}>Pagamento <span style={{fontSize:9}}>{ordPag==="desc"?"▼":ordPag==="asc"?"▲":"⇅"}</span></span>
+              </th>
+              <th className="px-5 py-2.5 font-medium" style={{textAlign:"right"}}>Valor</th><th className="px-3 py-2.5"></th>
             </tr></thead>
             <tbody>
               {filtrados.map(l=>(
@@ -469,9 +487,12 @@ function Lancamentos({lancs,profs,corDe,onAdd,onRemover}){
                   <td className="px-5 py-2.5" style={{fontWeight:500}}>{l.paciente==="(consolidado)"?<span style={{color:C.inkFaint,fontStyle:"italic"}}>consolidado</span>:l.paciente}</td>
                   <td className="px-5 py-2.5"><span className="inline-flex items-center gap-1.5"><span className="rounded-full" style={{width:8,height:8,background:corDe(l.profissional_id)}}/><span style={{color:C.inkSoft}}>{l.profissional}</span></span></td>
                   <td className="px-5 py-2.5" style={{color:C.inkSoft}}>{MESES[l.mes-1]}</td>
-                  <td className="px-5 py-2.5" style={{color:C.inkSoft}} title={fmtDataHora(l.criado_em)}>{fmtData(l.criado_em)}</td>
+                  <td className="px-5 py-2.5" style={{color:l.data_pagamento?C.inkSoft:C.inkFaint+"99"}}>{fmtDataPag(l.data_pagamento)}</td>
                   <td className="px-5 py-2.5" style={{textAlign:"right",fontWeight:600}}>{brl(l.valor_bruto)}</td>
-                  <td className="px-3 py-2.5" style={{textAlign:"right"}}><button onClick={()=>{if(confirm("Remover este lançamento?"))onRemover(l.id);}} className="p-1 rounded-md transition hover:opacity-70" title="Remover"><I.x size={15} color={C.inkFaint}/></button></td>
+                  <td className="px-3 py-2.5" style={{textAlign:"right",whiteSpace:"nowrap"}}>
+                    <button onClick={()=>onEditar(l)} className="p-1 rounded-md transition hover:opacity-70" title="Editar"><I.edit size={15} color={C.inkSoft}/></button>
+                    <button onClick={()=>{if(confirm("Remover este lançamento?"))onRemover(l.id);}} className="p-1 rounded-md transition hover:opacity-70 ml-1" title="Remover"><I.x size={15} color={C.inkFaint}/></button>
+                  </td>
                 </tr>))}
               {filtrados.length===0 && <tr><td colSpan="6" className="px-5 py-10 text-center" style={{color:C.inkFaint}}>Nenhum lançamento encontrado.</td></tr>}
             </tbody>
@@ -575,12 +596,15 @@ function Pacientes({lancs,pacientes,profs,corDe,onAdd}){
 }
 
 /* ── MODAL NOVO LANÇAMENTO ─────────────────────────────────────────────── */
-function ModalLancamento({profs,pacientes,onClose,onSave}){
-  const [profId,setProfId]=useState(profs[0]?.id||"");
-  const [pacId,setPacId]=useState("");
-  const [descricao,setDescricao]=useState("");
-  const [mes,setMes]=useState(new Date().getMonth()+1);
-  const [valor,setValor]=useState(""); const [salvando,setSalvando]=useState(false);
+function ModalLancamento({lancamento,profs,pacientes,onClose,onSave}){
+  const ed=lancamento; // objeto da view quando é edição; null quando é novo
+  const [profId,setProfId]=useState(ed?ed.profissional_id:(profs[0]?.id||""));
+  const [pacId,setPacId]=useState(ed?(ed.paciente_id||""):"");
+  const [descricao,setDescricao]=useState(ed&&!ed.paciente_id?(ed.paciente||""):"");
+  const [mes,setMes]=useState(ed?ed.mes:(new Date().getMonth()+1));
+  const [valor,setValor]=useState(ed?String(ed.valor_bruto):"");
+  const [dataPag,setDataPag]=useState(ed?(ed.data_pagamento?String(ed.data_pagamento).slice(0,10):""):new Date().toISOString().slice(0,10));
+  const [salvando,setSalvando]=useState(false);
   const prof=profs.find(p=>p.id===profId);
   const ehServico=prof&&prof.tipo==="servico";
   const valido=Number(valor)>0 && profId && (pacId || descricao.trim());
@@ -588,14 +612,15 @@ function ModalLancamento({profs,pacientes,onClose,onSave}){
   const label={fontSize:12,fontWeight:600,color:C.inkSoft,marginBottom:6,display:"block"};
   async function salvar(){
     setSalvando(true);
-    const l={ profissional_id:profId, ano:2026, mes, valor_bruto:Number(valor) };
-    if(pacId) l.paciente_id=pacId; else l.descricao=descricao.trim();
-    await onSave(l); setSalvando(false);
+    const dados={ profissional_id:profId, ano:2026, mes, valor_bruto:Number(valor),
+      paciente_id: pacId||null, descricao: pacId?null:(descricao.trim()||null),
+      data_pagamento: dataPag||null };
+    await onSave(dados, ed?ed.id:undefined); setSalvando(false);
   }
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{background:"rgba(44,58,47,0.4)"}} onClick={onClose}>
       <div className="w-full rounded-2xl p-6" style={{maxWidth:440,background:C.surface}} onClick={e=>e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-5"><h2 className="font-display" style={{fontSize:20,fontWeight:600}}>Novo lançamento</h2><button onClick={onClose}><I.x size={18} color={C.inkSoft}/></button></div>
+        <div className="flex items-center justify-between mb-5"><h2 className="font-display" style={{fontSize:20,fontWeight:600}}>{ed?"Editar lançamento":"Novo lançamento"}</h2><button onClick={onClose}><I.x size={18} color={C.inkSoft}/></button></div>
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div><label style={label}>Origem</label>
@@ -614,11 +639,16 @@ function ModalLancamento({profs,pacientes,onClose,onSave}){
             <div><label style={label}>Descrição</label>
               <input style={campo} placeholder="Ex: Almofadas, aluguel…" value={descricao} onChange={e=>setDescricao(e.target.value)}/></div>
           )}
-          <div><label style={label}>Valor recebido (R$)</label>
-            <input style={campo} placeholder="0,00" inputMode="decimal" value={valor} onChange={e=>setValor(e.target.value.replace(",","."))}/>
-            {prof && Number(prof.repasse_studio)<1 && Number(valor)>0 &&
-              <p style={{fontSize:11,color:C.terra,marginTop:5}}>Entra no caixa: {brl(Number(valor)*prof.repasse_studio)} (repasse {Math.round(prof.repasse_studio*100)}%)</p>}
+          <div className="grid grid-cols-2 gap-3">
+            <div><label style={label}>Valor recebido (R$)</label>
+              <input style={campo} placeholder="0,00" inputMode="decimal" value={valor} onChange={e=>setValor(e.target.value.replace(",","."))}/>
+            </div>
+            <div><label style={label}>Data do pagamento</label>
+              <input type="date" style={campo} value={dataPag} onChange={e=>setDataPag(e.target.value)}/>
+            </div>
           </div>
+          {prof && Number(prof.repasse_studio)<1 && Number(valor)>0 &&
+            <p style={{fontSize:11,color:C.terra,marginTop:-6}}>Entra no caixa: {brl(Number(valor)*prof.repasse_studio)} (repasse {Math.round(prof.repasse_studio*100)}%)</p>}
         </div>
         <div className="flex gap-3 mt-6">
           <button onClick={onClose} className="flex-1 py-2.5 rounded-xl font-semibold transition hover:opacity-80" style={{background:C.surfaceAlt,color:C.inkSoft,border:`1px solid ${C.border}`}}>Cancelar</button>
