@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Studio Pilates — Caixa</title>
+<link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🤸</text></svg>'>
+<script>
+  // Rede de segurança: se algo falhar, mostra o erro na tela em vez de ficar em branco.
+  function _mostraErro(msg){
+    var r=document.getElementById('root');
+    if(r&&!r.hasChildNodes()){
+      r.innerHTML='<div style="max-width:560px;margin:60px auto;padding:24px;font-family:system-ui;'
+        +'background:#fff;border:1px solid #E6DFD0;border-radius:16px;color:#2C3A2F">'
+        +'<b style="font-size:17px">Não foi possível abrir o app</b>'
+        +'<p style="color:#5C6B5E;font-size:14px;line-height:1.6">Detalhe técnico abaixo. '
+        +'Se precisar, copie esta mensagem e envie para quem te ajuda.</p>'
+        +'<pre style="background:#FBF9F3;padding:12px;border-radius:10px;font-size:12px;'
+        +'white-space:pre-wrap;color:#C2784E">'+String(msg)+'</pre></div>';
+    }
+  }
+  window.addEventListener('error',function(e){_mostraErro(e.message||e.error||e);});
+  window.addEventListener('unhandledrejection',function(e){_mostraErro(e.reason||e);});
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  :root{ --bg:#F7F4ED; --surface:#FFF; --surfaceAlt:#FBF9F3; --border:#E6DFD0; --borderSoft:#EFEADD;
+    --ink:#2C3A2F; --inkSoft:#5C6B5E; --inkFaint:#8A958B; --sage:#5E7E62; --sageDeep:#445F48;
+    --sageSoft:#DCE6DB; --terra:#C2784E; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--bg); color:var(--ink); font-family:'DM Sans',system-ui,sans-serif; }
+  .font-display{ font-family:'Fraunces',Georgia,serif; }
+  input,select,button{ font-family:inherit; }
+  ::-webkit-scrollbar{ height:8px; width:8px; } ::-webkit-scrollbar-thumb{ background:var(--border); border-radius:8px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+/* ╔══════════════════════════════════════════════════════════════════════╗
+   ║  CONFIGURAÇÃO — PREENCHA ESTES DOIS VALORES                            ║
+   ║  No Supabase: Project Settings -> API                                  ║
+   ╚══════════════════════════════════════════════════════════════════════╝ */
+const SUPABASE_URL = "https://brmxylsmifngcyehildz.supabase.co";       // ex: https://abcdefg.supabase.co
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJybXh5bHNtaWZuZ2N5ZWhpbGR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2NDU1ODQsImV4cCI6MjA5NTIyMTU4NH0.cbk-CD33yMx_GSqHGwSe8jmsVysTw1PgESuBO-Rikyw";   // a chave "anon public"
+
+
+/* ──────────────────────────────────────────────────────────────────────── */
+const { useState, useEffect, useMemo } = React;
+const { createClient } = window.supabase || {};
+const CONFIG_OK = !SUPABASE_URL.startsWith("COLE_") && !SUPABASE_ANON_KEY.startsWith("COLE_");
+const sb = createClient(
+  CONFIG_OK ? SUPABASE_URL : "https://placeholder.supabase.co",
+  CONFIG_OK ? SUPABASE_ANON_KEY : "placeholder-key"
+);
+
+const C = {
+  bg:"#F7F4ED", surface:"#FFF", surfaceAlt:"#FBF9F3", border:"#E6DFD0", borderSoft:"#EFEADD",
+  ink:"#2C3A2F", inkSoft:"#5C6B5E", inkFaint:"#8A958B", sage:"#5E7E62", sageDeep:"#445F48",
+  sageSoft:"#DCE6DB", terra:"#C2784E", gold:"#B8923F",
+};
+const MESES = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+const MES_ABV = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+const CORES = ["#5E7E62","#C2784E","#7B8FA1","#B8923F","#A56B7D","#6E8B8E","#9C7B5A","#8A7CA8","#6B9080","#C9A35B"];
+
+const brl = (n) => (Number(n)||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+const brlK = (n) => n>=1000 ? "R$ "+(n/1000).toFixed(1).replace(".",",")+"k" : brl(n);
+const fmtData = (iso) => { if(!iso) return "–"; const d=new Date(iso); return isNaN(d.getTime())?"–":d.toLocaleDateString("pt-BR"); };
+const fmtDataHora = (iso) => { if(!iso) return ""; const d=new Date(iso); return isNaN(d.getTime())?"":d.toLocaleString("pt-BR"); };
+
+/* ── Ícones SVG inline ─────────────────────────────────────────────────── */
+const Ic = ({d, size=18, color="currentColor", fill="none"}) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke={color}
+       strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{d}</svg>
+);
+const I = {
+  wallet:(p)=><Ic {...p} d={<><path d="M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0 0 4h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5"/><path d="M16 12h.01"/></>}/>,
+  dash:(p)=><Ic {...p} d={<><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></>}/>,
+  list:(p)=><Ic {...p} d={<><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></>}/>,
+  table:(p)=><Ic {...p} d={<><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="3" x2="9" y2="21"/></>}/>,
+  users:(p)=><Ic {...p} d={<><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></>}/>,
+  plus:(p)=><Ic {...p} d={<><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></>}/>,
+  x:(p)=><Ic {...p} d={<><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>}/>,
+  search:(p)=><Ic {...p} d={<><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></>}/>,
+  up:(p)=><Ic {...p} d={<><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></>}/>,
+  cal:(p)=><Ic {...p} d={<><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></>}/>,
+  trend:(p)=><Ic {...p} d={<><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></>}/>,
+  out:(p)=><Ic {...p} d={<><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></>}/>,
+};
+
+const FONT_D = "'Fraunces',Georgia,serif";
+
+/* ════════════════════════ CONFIG NÃO PREENCHIDA ════════════════════════ */
+function ConfigAviso(){
+  return (
+    <div className="min-h-screen flex items-center justify-center p-6">
+      <div className="max-w-md rounded-2xl p-7" style={{background:C.surface,border:`1px solid ${C.border}`}}>
+        <h1 className="font-display" style={{fontSize:22,fontWeight:600}}>Falta configurar</h1>
+        <p style={{color:C.inkSoft,fontSize:14,marginTop:10,lineHeight:1.6}}>
+          Abra este arquivo e preencha, lá no topo, os campos <b>SUPABASE_URL</b> e <b>SUPABASE_ANON_KEY</b>
+          com os valores que estão no seu projeto Supabase em <b>Project Settings → API</b>. Depois salve e recarregue.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════ LOGIN ════════════════════════════════════ */
+function Login({ onEntrar }){
+  const [email,setEmail]=useState(""); const [senha,setSenha]=useState("");
+  const [erro,setErro]=useState(""); const [carregando,setCarregando]=useState(false);
+  async function entrar(){
+    setErro(""); setCarregando(true);
+    const { error } = await sb.auth.signInWithPassword({ email:email.trim(), password:senha });
+    setCarregando(false);
+    if(error) setErro("E-mail ou senha incorretos."); else onEntrar();
+  }
+  const campo={ background:C.surfaceAlt, border:`1px solid ${C.border}`, borderRadius:10,
+    padding:"11px 13px", fontSize:14, width:"100%", outline:"none", color:C.ink };
+  return (
+    <div className="min-h-screen flex items-center justify-center p-6">
+      <div className="w-full max-w-sm">
+        <div className="flex items-center gap-2.5 mb-7 justify-center">
+          <div className="rounded-xl flex items-center justify-center" style={{width:42,height:42,background:C.sage}}>
+            <I.wallet color="#fff" size={20}/>
+          </div>
+          <div>
+            <div className="font-display" style={{fontSize:20,fontWeight:600,lineHeight:1}}>Studio Pilates</div>
+            <div style={{color:C.inkFaint,fontSize:12}}>Caixa · 2026</div>
+          </div>
+        </div>
+        <div className="rounded-2xl p-6" style={{background:C.surface,border:`1px solid ${C.border}`}}>
+          <h1 className="font-display" style={{fontSize:19,fontWeight:600,marginBottom:16}}>Entrar</h1>
+          <div className="space-y-3">
+            <input style={campo} type="email" placeholder="E-mail" value={email}
+                   onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&entrar()} />
+            <input style={campo} type="password" placeholder="Senha" value={senha}
+                   onChange={e=>setSenha(e.target.value)} onKeyDown={e=>e.key==="Enter"&&entrar()} />
+          </div>
+          {erro && <p style={{color:C.terra,fontSize:13,marginTop:10}}>{erro}</p>}
+          <button onClick={entrar} disabled={carregando}
+                  className="w-full mt-5 py-2.5 rounded-xl font-semibold text-white transition hover:opacity-90"
+                  style={{background:C.sage}}>
+            {carregando?"Entrando…":"Entrar"}
+          </button>
+        </div>
+        <p style={{color:C.inkFaint,fontSize:11.5,marginTop:14,textAlign:"center",lineHeight:1.5}}>
+          Acesso restrito. Os dados são protegidos e visíveis somente após login.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════ APP ══════════════════════════════════════ */
+function App({ sessao }){
+  const [view,setView]=useState("dashboard");
+  const [profs,setProfs]=useState([]);
+  const [pacientes,setPacientes]=useState([]);
+  const [lancs,setLancs]=useState([]);
+  const [carregando,setCarregando]=useState(true);
+  const [erro,setErro]=useState("");
+  const [modal,setModal]=useState(false);
+
+  async function carregar(){
+    setCarregando(true); setErro("");
+    const [p1,p2,p3] = await Promise.all([
+      sb.from("profissionais").select("*").order("nome"),
+      sb.from("pacientes").select("*").eq("ativo",true).order("nome"),
+      sb.from("vw_lancamentos").select("*"),
+    ]);
+    if(p1.error||p2.error||p3.error){ setErro("Não consegui carregar os dados. Confira a configuração e a conexão."); setCarregando(false); return; }
+    setProfs(p1.data); setPacientes(p2.data); setLancs(p3.data); setCarregando(false);
+  }
+  useEffect(()=>{ carregar(); },[]);
+
+  async function addLancamento(l){
+    const { error } = await sb.from("lancamentos").insert([l]);
+    if(error){ alert("Erro ao salvar: "+error.message); return false; }
+    await carregar(); return true;
+  }
+  async function removerLancamento(id){
+    const { error } = await sb.from("lancamentos").delete().eq("id",id);
+    if(error){ alert("Erro ao remover: "+error.message); return; }
+    setLancs(prev=>prev.filter(l=>l.id!==id));
+  }
+  async function addPaciente(nome,telefone){
+    const { error } = await sb.from("pacientes").insert([{nome,telefone:telefone||null}]);
+    if(error){ alert("Erro ao cadastrar: "+error.message); return false; }
+    await carregar(); return true;
+  }
+
+  const nav=[
+    {id:"dashboard",label:"Painel",icon:I.dash},
+    {id:"lancamentos",label:"Lançamentos",icon:I.list},
+    {id:"resultado",label:"Resultado",icon:I.table},
+    {id:"pacientes",label:"Pacientes",icon:I.users},
+  ];
+  const corDe=(id)=>{ const i=profs.findIndex(p=>p.id===id); return CORES[(i<0?0:i)%CORES.length]; };
+
+  return (
+    <div className="flex w-full" style={{minHeight:"100vh"}}>
+      {/* SIDEBAR */}
+      <aside className="hidden md:flex flex-col w-64 shrink-0 sticky top-0"
+             style={{height:"100vh",background:C.surface,borderRight:`1px solid ${C.border}`}}>
+        <div className="px-6 pt-7 pb-6" style={{borderBottom:`1px solid ${C.borderSoft}`}}>
+          <div className="flex items-center gap-2.5">
+            <div className="rounded-xl flex items-center justify-center" style={{width:36,height:36,background:C.sage}}>
+              <I.wallet color="#fff" size={18}/>
+            </div>
+            <div>
+              <div className="font-display" style={{fontSize:18,fontWeight:600,lineHeight:1.05}}>Studio Pilates</div>
+              <div style={{color:C.inkFaint,fontSize:12}}>Caixa · 2026</div>
+            </div>
+          </div>
+        </div>
+        <nav className="flex-1 px-3 py-4 space-y-1">
+          {nav.map(n=>{ const Icon=n.icon; const a=view===n.id; return (
+            <button key={n.id} onClick={()=>setView(n.id)}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition"
+              style={{background:a?C.sageSoft:"transparent",color:a?C.sageDeep:C.inkSoft,fontWeight:a?600:500}}>
+              <Icon size={18} color={a?C.sageDeep:C.inkSoft}/>{n.label}
+            </button> );})}
+        </nav>
+        <div className="p-3 space-y-2" style={{borderTop:`1px solid ${C.borderSoft}`}}>
+          <button onClick={()=>setModal(true)}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold text-white transition hover:opacity-90"
+            style={{background:C.terra}}><I.plus size={17} color="#fff"/> Novo lançamento</button>
+          <div className="flex items-center justify-between px-1 pt-1">
+            <span style={{fontSize:11,color:C.inkFaint,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:150}}>{sessao.user.email}</span>
+            <button onClick={()=>sb.auth.signOut()} title="Sair" className="p-1.5 rounded-lg transition hover:opacity-70"><I.out size={16} color={C.inkFaint}/></button>
+          </div>
+        </div>
+      </aside>
+
+      {/* CONTEÚDO */}
+      <main className="flex-1 min-w-0">
+        <div className="md:hidden flex items-center gap-2 px-4 py-3 sticky top-0 z-10 overflow-x-auto"
+             style={{background:C.surface,borderBottom:`1px solid ${C.border}`}}>
+          {nav.map(n=>(
+            <button key={n.id} onClick={()=>setView(n.id)} className="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap"
+              style={{background:view===n.id?C.sageSoft:"transparent",color:view===n.id?C.sageDeep:C.inkSoft}}>{n.label}</button>
+          ))}
+          <button onClick={()=>sb.auth.signOut()} className="px-3 py-1.5 rounded-lg text-xs ml-auto" style={{color:C.inkFaint}}>Sair</button>
+        </div>
+
+        <div className="mx-auto px-5 md:px-9 py-7 md:py-9" style={{maxWidth:1120}}>
+          {carregando && <Carregando/>}
+          {!carregando && erro && <ErroBox msg={erro} onTentar={carregar}/>}
+          {!carregando && !erro && <>
+            {view==="dashboard"  && <Dashboard lancs={lancs} profs={profs} corDe={corDe}/>}
+            {view==="lancamentos"&& <Lancamentos lancs={lancs} profs={profs} corDe={corDe} onAdd={()=>setModal(true)} onRemover={removerLancamento}/>}
+            {view==="resultado"  && <Resultado lancs={lancs} profs={profs} corDe={corDe}/>}
+            {view==="pacientes"  && <Pacientes lancs={lancs} pacientes={pacientes} profs={profs} corDe={corDe} onAdd={addPaciente}/>}
+          </>}
+        </div>
+      </main>
+
+      {modal && <ModalLancamento profs={profs} pacientes={pacientes} onClose={()=>setModal(false)}
+                   onSave={async(l)=>{ const ok=await addLancamento(l); if(ok) setModal(false); }}/>}
+    </div>
+  );
+}
+
+/* ── Estados auxiliares ────────────────────────────────────────────────── */
+function Carregando(){ return <div className="py-20 text-center" style={{color:C.inkFaint}}>Carregando…</div>; }
+function ErroBox({msg,onTentar}){
+  return <div className="rounded-2xl p-6" style={{background:C.surface,border:`1px solid ${C.border}`}}>
+    <p style={{color:C.ink,fontSize:14}}>{msg}</p>
+    <button onClick={onTentar} className="mt-4 px-4 py-2 rounded-xl text-sm font-semibold text-white" style={{background:C.sage}}>Tentar de novo</button>
+  </div>;
+}
+function Card({children,className="",style={}}){
+  return <div className={"rounded-2xl "+className} style={{background:C.surface,border:`1px solid ${C.border}`,...style}}>{children}</div>;
+}
+function PageTitle({eyebrow,title,children}){
+  return <div className="flex flex-wrap items-end justify-between gap-4 mb-7">
+    <div>
+      <div style={{color:C.terra,fontSize:12,fontWeight:600,letterSpacing:1.5,textTransform:"uppercase"}}>{eyebrow}</div>
+      <h1 className="font-display" style={{fontSize:30,fontWeight:600,marginTop:4}}>{title}</h1>
+    </div>{children}
+  </div>;
+}
+
+/* ── Agregações ────────────────────────────────────────────────────────── */
+function useAgg(lancs,profs){
+  return useMemo(()=>{
+    const porMes = MESES.map((_,i)=>{ const idx=i+1;
+      const total=lancs.filter(l=>l.mes===idx).reduce((s,l)=>s+Number(l.valor_studio),0);
+      return {mes:MES_ABV[i],mesIdx:idx,total}; });
+    const porOrigem = profs.map(p=>{
+      const ls=lancs.filter(l=>l.profissional_id===p.id);
+      return {...p, totalStudio:ls.reduce((s,l)=>s+Number(l.valor_studio),0),
+                    totalBruto:ls.reduce((s,l)=>s+Number(l.valor_bruto),0)};
+    });
+    const totalAno=porMes.reduce((s,m)=>s+m.total,0);
+    const comMov=porMes.filter(m=>m.total>0);
+    const ultimo=comMov.length?comMov[comMov.length-1]:porMes[0];
+    const media=comMov.length?totalAno/comMov.length:0;
+    const ativos=new Set(lancs.filter(l=>l.paciente_id).map(l=>l.paciente_id)).size;
+    return {porMes,porOrigem,totalAno,ultimo,media,ativos};
+  },[lancs,profs]);
+}
+
+/* ── Gráficos em SVG puro (sem biblioteca externa) ─────────────────────── */
+function GraficoBarras({data}){
+  const W=520,H=240,padB=28,padT=14,padL=4,padR=4;
+  const max=Math.max(...data.map(d=>d.total),1);
+  const n=data.length, gap=8;
+  const bw=(W-padL-padR-gap*(n-1))/n;
+  const plotH=H-padB-padT;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{display:"block"}} preserveAspectRatio="xMidYMid meet">
+      {[0,0.25,0.5,0.75,1].map((t,i)=>(
+        <line key={i} x1={padL} x2={W-padR} y1={padT+plotH*t} y2={padT+plotH*t} stroke={C.borderSoft} strokeWidth="1" strokeDasharray="3 3"/>
+      ))}
+      {data.map((d,i)=>{
+        const h=d.total/max*plotH;
+        const x=padL+i*(bw+gap);
+        const y=padT+plotH-h;
+        return (
+          <g key={i}>
+            <rect x={x} y={y} width={bw} height={Math.max(h,0)} rx="4" fill={d.total>0?C.sage:C.borderSoft}>
+              <title>{`${d.mes}: ${brl(d.total)}`}</title>
+            </rect>
+            <text x={x+bw/2} y={H-9} textAnchor="middle" fontSize="11" fill={C.inkSoft} fontFamily="DM Sans">{d.mes}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+function GraficoDonut({data,corDe}){
+  const total=data.reduce((s,d)=>s+d.value,0)||1;
+  const size=170, r=58, sw=22, cx=size/2, cy=size/2, circ=2*Math.PI*r;
+  let acc=0;
+  return (
+    <svg viewBox={`0 0 ${size} ${size}`} width="100%" height="170" style={{display:"block"}}>
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke={C.borderSoft} strokeWidth={sw}/>
+      {data.map((d)=>{
+        const frac=d.value/total;
+        const len=frac*circ;
+        const seg=(
+          <circle key={d.id} cx={cx} cy={cy} r={r} fill="none" stroke={corDe(d.id)} strokeWidth={sw}
+            strokeDasharray={`${len} ${circ-len}`} strokeDashoffset={-acc}
+            transform={`rotate(-90 ${cx} ${cy})`}>
+            <title>{`${d.name}: ${brl(d.value)}`}</title>
+          </circle>
+        );
+        acc+=len; return seg;
+      })}
+    </svg>
+  );
+}
+
+/* ── PAINEL ────────────────────────────────────────────────────────────── */
+function Dashboard({lancs,profs,corDe}){
+  const a=useAgg(lancs,profs);
+  const kpis=[
+    {label:"Faturamento no ano",valor:brl(a.totalAno),icon:I.trend,cor:C.sage},
+    {label:`Último mês (${MESES[a.ultimo.mesIdx-1]})`,valor:brl(a.ultimo.total),icon:I.cal,cor:C.terra},
+    {label:"Média mensal",valor:brl(a.media),icon:I.up,cor:C.gold},
+    {label:"Pacientes ativos",valor:String(a.ativos),icon:I.users,cor:"#7B8FA1"},
+  ];
+  const ord=[...a.porOrigem].filter(o=>o.totalStudio>0).sort((x,y)=>y.totalStudio-x.totalStudio);
+  const maxO=Math.max(...ord.map(o=>o.totalStudio),1);
+  const pie=ord.map(o=>({name:o.nome,value:o.totalStudio,id:o.id}));
+  return (
+    <div>
+      <PageTitle eyebrow="Visão geral" title="Painel financeiro"/>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {kpis.map(k=>{ const Icon=k.icon; return (
+          <Card key={k.label} className="p-5">
+            <div className="flex items-center justify-between mb-3">
+              <span style={{color:C.inkSoft,fontSize:13}}>{k.label}</span>
+              <div className="rounded-lg flex items-center justify-center" style={{width:32,height:32,background:k.cor+"1F"}}><Icon size={16} color={k.cor}/></div>
+            </div>
+            <div className="font-display" style={{fontSize:23,fontWeight:600}}>{k.valor}</div>
+          </Card> );})}
+      </div>
+      <div className="grid lg:grid-cols-3 gap-5">
+        <Card className="p-5 lg:col-span-2">
+          <h3 className="font-display" style={{fontSize:17,fontWeight:600}}>Receita por mês</h3>
+          <p style={{color:C.inkFaint,fontSize:12,marginBottom:12}}>valores líquidos para o caixa do studio</p>
+          <GraficoBarras data={a.porMes}/>
+        </Card>
+        <Card className="p-5">
+          <h3 className="font-display" style={{fontSize:17,fontWeight:600}}>Por profissional / serviço</h3>
+          <p style={{color:C.inkFaint,fontSize:12,marginBottom:10}}>participação no ano</p>
+          <GraficoDonut data={pie} corDe={corDe}/>
+          <div className="space-y-2 mt-3">
+            {ord.slice(0,6).map(o=>(
+              <div key={o.id} className="flex items-center justify-between text-sm">
+                <span className="flex items-center gap-2"><span className="rounded-full" style={{width:10,height:10,background:corDe(o.id)}}/><span style={{color:C.inkSoft}}>{o.nome}</span></span>
+                <span style={{fontWeight:600}}>{brlK(o.totalStudio)}</span>
+              </div>))}
+          </div>
+        </Card>
+      </div>
+      <Card className="p-5 mt-5">
+        <h3 className="font-display" style={{fontSize:17,fontWeight:600,marginBottom:14}}>Ranking de origens</h3>
+        <div className="space-y-3">
+          {ord.map(o=>(
+            <div key={o.id}>
+              <div className="flex justify-between text-sm mb-1">
+                <span style={{fontWeight:500}}>{o.nome}{Number(o.repasse_studio)<1 && <span style={{color:C.terra,fontSize:11,marginLeft:6}}>repasse {Math.round(o.repasse_studio*100)}%</span>}</span>
+                <span style={{color:C.inkSoft}}>{brl(o.totalStudio)}</span>
+              </div>
+              <div className="rounded-full overflow-hidden" style={{height:10,background:C.borderSoft}}>
+                <div className="h-full rounded-full" style={{width:(o.totalStudio/maxO*100)+"%",background:corDe(o.id)}}/>
+              </div>
+            </div>))}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+/* ── LANÇAMENTOS ───────────────────────────────────────────────────────── */
+function Lancamentos({lancs,profs,corDe,onAdd,onRemover}){
+  const [fProf,setFProf]=useState("todas"); const [fMes,setFMes]=useState("todos"); const [busca,setBusca]=useState("");
+  const filtrados=useMemo(()=>lancs
+    .filter(l=>fProf==="todas"||l.profissional_id===fProf)
+    .filter(l=>fMes==="todos"||l.mes===Number(fMes))
+    .filter(l=>(l.paciente||"").toLowerCase().includes(busca.toLowerCase()))
+    .sort((a,b)=>a.mes-b.mes||(a.paciente||"").localeCompare(b.paciente||"")),[lancs,fProf,fMes,busca]);
+  const total=filtrados.reduce((s,l)=>s+Number(l.valor_bruto),0);
+  const sel={background:C.surface,border:`1px solid ${C.border}`,color:C.ink,borderRadius:10,padding:"8px 12px",fontSize:13};
+  return (
+    <div>
+      <PageTitle eyebrow="Movimentações" title="Lançamentos">
+        <button onClick={onAdd} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition hover:opacity-90" style={{background:C.terra}}><I.plus size={16} color="#fff"/> Novo</button>
+      </PageTitle>
+      <Card className="p-4 mb-5">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 px-3 rounded-lg flex-1" style={{border:`1px solid ${C.border}`,minWidth:180}}>
+            <I.search size={15} color={C.inkFaint}/>
+            <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar paciente…" className="py-2 w-full" style={{outline:"none",background:"transparent",fontSize:13}}/>
+          </div>
+          <select value={fProf} onChange={e=>setFProf(e.target.value)} style={sel}>
+            <option value="todas">Todas as origens</option>{profs.map(o=><option key={o.id} value={o.id}>{o.nome}</option>)}
+          </select>
+          <select value={fMes} onChange={e=>setFMes(e.target.value)} style={sel}>
+            <option value="todos">Todos os meses</option>{MESES.map((m,i)=><option key={i} value={i+1}>{m}</option>)}
+          </select>
+        </div>
+      </Card>
+      <Card className="overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-3" style={{borderBottom:`1px solid ${C.borderSoft}`,background:C.surfaceAlt}}>
+          <span style={{fontSize:13,color:C.inkSoft}}>{filtrados.length} lançamento{filtrados.length!==1?"s":""}</span>
+          <span style={{fontSize:13}}>Soma bruta: <b>{brl(total)}</b></span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full" style={{fontSize:13}}>
+            <thead><tr style={{color:C.inkFaint,textAlign:"left"}}>
+              <th className="px-5 py-2.5 font-medium">Paciente</th><th className="px-5 py-2.5 font-medium">Origem</th>
+              <th className="px-5 py-2.5 font-medium">Mês</th><th className="px-5 py-2.5 font-medium">Registrado em</th><th className="px-5 py-2.5 font-medium" style={{textAlign:"right"}}>Valor</th><th className="px-3 py-2.5"></th>
+            </tr></thead>
+            <tbody>
+              {filtrados.map(l=>(
+                <tr key={l.id} style={{borderTop:`1px solid ${C.borderSoft}`}}>
+                  <td className="px-5 py-2.5" style={{fontWeight:500}}>{l.paciente==="(consolidado)"?<span style={{color:C.inkFaint,fontStyle:"italic"}}>consolidado</span>:l.paciente}</td>
+                  <td className="px-5 py-2.5"><span className="inline-flex items-center gap-1.5"><span className="rounded-full" style={{width:8,height:8,background:corDe(l.profissional_id)}}/><span style={{color:C.inkSoft}}>{l.profissional}</span></span></td>
+                  <td className="px-5 py-2.5" style={{color:C.inkSoft}}>{MESES[l.mes-1]}</td>
+                  <td className="px-5 py-2.5" style={{color:C.inkSoft}} title={fmtDataHora(l.criado_em)}>{fmtData(l.criado_em)}</td>
+                  <td className="px-5 py-2.5" style={{textAlign:"right",fontWeight:600}}>{brl(l.valor_bruto)}</td>
+                  <td className="px-3 py-2.5" style={{textAlign:"right"}}><button onClick={()=>{if(confirm("Remover este lançamento?"))onRemover(l.id);}} className="p-1 rounded-md transition hover:opacity-70" title="Remover"><I.x size={15} color={C.inkFaint}/></button></td>
+                </tr>))}
+              {filtrados.length===0 && <tr><td colSpan="6" className="px-5 py-10 text-center" style={{color:C.inkFaint}}>Nenhum lançamento encontrado.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+/* ── RESULTADO ─────────────────────────────────────────────────────────── */
+function Resultado({lancs,profs,corDe}){
+  const matriz=useMemo(()=>profs.map(o=>{
+    const meses=MESES.map((_,i)=>lancs.filter(l=>l.profissional_id===o.id&&l.mes===i+1).reduce((s,l)=>s+Number(l.valor_studio),0));
+    return {...o,meses,total:meses.reduce((s,v)=>s+v,0)};
+  }),[lancs,profs]);
+  const totalMes=MESES.map((_,i)=>matriz.reduce((s,o)=>s+o.meses[i],0));
+  const totalAno=totalMes.reduce((s,v)=>s+v,0);
+  const fmt=v=>v?v.toLocaleString("pt-BR",{maximumFractionDigits:0}):"–";
+  return (
+    <div>
+      <PageTitle eyebrow="Consolidado" title="Resultado financeiro"/>
+      <Card className="overflow-x-auto">
+        <table className="w-full" style={{fontSize:12.5,minWidth:880}}>
+          <thead><tr style={{background:C.surfaceAlt,color:C.inkFaint}}>
+            <th className="px-4 py-3 sticky left-0" style={{textAlign:"left",fontWeight:500,background:C.surfaceAlt}}>Origem</th>
+            {MES_ABV.map(m=><th key={m} className="px-3 py-3" style={{textAlign:"right",fontWeight:500}}>{m}</th>)}
+            <th className="px-4 py-3" style={{textAlign:"right",fontWeight:600,color:C.sageDeep}}>Total</th>
+          </tr></thead>
+          <tbody>
+            {matriz.map(o=>(
+              <tr key={o.id} style={{borderTop:`1px solid ${C.borderSoft}`}}>
+                <td className="px-4 py-2.5 sticky left-0" style={{background:C.surface,fontWeight:500}}><span className="inline-flex items-center gap-2"><span className="rounded-full" style={{width:8,height:8,background:corDe(o.id)}}/>{o.nome}</span></td>
+                {o.meses.map((v,i)=><td key={i} className="px-3 py-2.5" style={{textAlign:"right",color:v?C.ink:C.inkFaint+"70"}}>{fmt(v)}</td>)}
+                <td className="px-4 py-2.5" style={{textAlign:"right",fontWeight:600}}>{o.total?brlK(o.total):"–"}</td>
+              </tr>))}
+          </tbody>
+          <tfoot><tr style={{borderTop:`2px solid ${C.border}`,background:C.sageSoft+"70"}}>
+            <td className="px-4 py-3 sticky left-0" style={{background:C.sageSoft,fontWeight:700,color:C.sageDeep}}>Total do mês</td>
+            {totalMes.map((v,i)=><td key={i} className="px-3 py-3" style={{textAlign:"right",fontWeight:600,color:C.sageDeep}}>{fmt(v)}</td>)}
+            <td className="px-4 py-3" style={{textAlign:"right",fontWeight:700,color:C.sageDeep}}>{brlK(totalAno)}</td>
+          </tr></tfoot>
+        </table>
+      </Card>
+      <p style={{color:C.inkFaint,fontSize:12,marginTop:12}}>Total do ano: <b style={{color:C.ink}}>{brl(totalAno)}</b> · valores líquidos para o caixa (Renata entra com repasse de 40%).</p>
+    </div>
+  );
+}
+
+/* ── PACIENTES ─────────────────────────────────────────────────────────── */
+function Pacientes({lancs,pacientes,profs,corDe,onAdd}){
+  const [busca,setBusca]=useState(""); const [novo,setNovo]=useState(false);
+  const [nome,setNome]=useState(""); const [tel,setTel]=useState("");
+  const lista=useMemo(()=>{
+    const map={};
+    for(const l of lancs){ if(!l.paciente_id) continue;
+      if(!map[l.paciente_id]) map[l.paciente_id]={id:l.paciente_id,nome:l.paciente,total:0,meses:new Set(),origens:new Set()};
+      map[l.paciente_id].total+=Number(l.valor_bruto); map[l.paciente_id].meses.add(l.mes); map[l.paciente_id].origens.add(l.profissional_id);
+    }
+    // inclui pacientes sem lançamento ainda
+    for(const p of pacientes){ if(!map[p.id]) map[p.id]={id:p.id,nome:p.nome,total:0,meses:new Set(),origens:new Set()}; }
+    return Object.values(map).map(p=>({...p,meses:p.meses.size,origens:[...p.origens]}))
+      .filter(p=>p.nome.toLowerCase().includes(busca.toLowerCase())).sort((a,b)=>b.total-a.total);
+  },[lancs,pacientes,busca]);
+  const campo={background:C.surfaceAlt,border:`1px solid ${C.border}`,borderRadius:10,padding:"9px 12px",fontSize:14,width:"100%",outline:"none"};
+  return (
+    <div>
+      <PageTitle eyebrow="Cadastro" title="Pacientes">
+        <button onClick={()=>setNovo(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition hover:opacity-90" style={{background:C.terra}}><I.plus size={16} color="#fff"/> Novo paciente</button>
+      </PageTitle>
+      <div className="flex items-center gap-2 px-3 rounded-xl mb-5" style={{border:`1px solid ${C.border}`,background:C.surface,maxWidth:380}}>
+        <I.search size={15} color={C.inkFaint}/>
+        <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar paciente…" className="py-2.5 w-full" style={{outline:"none",background:"transparent",fontSize:13}}/>
+      </div>
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {lista.map(p=>(
+          <Card key={p.id} className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-display" style={{fontSize:16,fontWeight:600}}>{p.nome}</span>
+              <span style={{fontSize:11,color:C.inkFaint}}>{p.meses} {p.meses===1?"mês":"meses"}</span>
+            </div>
+            <div style={{fontSize:22,fontWeight:600,color:C.sageDeep}}>{brl(p.total)}</div>
+            <div className="flex flex-wrap gap-1.5 mt-3">{p.origens.map(oid=><span key={oid} className="px-2 py-0.5 rounded-full" style={{fontSize:10.5,background:corDe(oid)+"22",color:corDe(oid)}}>{(profs.find(x=>x.id===oid)||{}).nome||"—"}</span>)}</div>
+          </Card>))}
+      </div>
+      {novo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{background:"rgba(44,58,47,0.4)"}} onClick={()=>setNovo(false)}>
+          <div className="w-full rounded-2xl p-6" style={{maxWidth:400,background:C.surface}} onClick={e=>e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5"><h2 className="font-display" style={{fontSize:20,fontWeight:600}}>Novo paciente</h2><button onClick={()=>setNovo(false)}><I.x size={18} color={C.inkSoft}/></button></div>
+            <div className="space-y-3">
+              <input style={campo} placeholder="Nome" value={nome} onChange={e=>setNome(e.target.value)} autoFocus/>
+              <input style={campo} placeholder="Telefone (opcional)" value={tel} onChange={e=>setTel(e.target.value)}/>
+            </div>
+            <button disabled={!nome.trim()} onClick={async()=>{const ok=await onAdd(nome.trim(),tel.trim());if(ok){setNome("");setTel("");setNovo(false);}}}
+              className="w-full mt-5 py-2.5 rounded-xl font-semibold text-white transition hover:opacity-90"
+              style={{background:nome.trim()?C.terra:C.inkFaint,cursor:nome.trim()?"pointer":"not-allowed"}}>Cadastrar</button>
+          </div>
+        </div>)}
+    </div>
+  );
+}
+
+/* ── MODAL NOVO LANÇAMENTO ─────────────────────────────────────────────── */
+function ModalLancamento({profs,pacientes,onClose,onSave}){
+  const [profId,setProfId]=useState(profs[0]?.id||"");
+  const [pacId,setPacId]=useState("");
+  const [descricao,setDescricao]=useState("");
+  const [mes,setMes]=useState(new Date().getMonth()+1);
+  const [valor,setValor]=useState(""); const [salvando,setSalvando]=useState(false);
+  const prof=profs.find(p=>p.id===profId);
+  const ehServico=prof&&prof.tipo==="servico";
+  const valido=Number(valor)>0 && profId && (pacId || descricao.trim());
+  const campo={background:C.surfaceAlt,border:`1px solid ${C.border}`,color:C.ink,borderRadius:10,padding:"10px 12px",fontSize:14,width:"100%",outline:"none"};
+  const label={fontSize:12,fontWeight:600,color:C.inkSoft,marginBottom:6,display:"block"};
+  async function salvar(){
+    setSalvando(true);
+    const l={ profissional_id:profId, ano:2026, mes, valor_bruto:Number(valor) };
+    if(pacId) l.paciente_id=pacId; else l.descricao=descricao.trim();
+    await onSave(l); setSalvando(false);
+  }
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{background:"rgba(44,58,47,0.4)"}} onClick={onClose}>
+      <div className="w-full rounded-2xl p-6" style={{maxWidth:440,background:C.surface}} onClick={e=>e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-5"><h2 className="font-display" style={{fontSize:20,fontWeight:600}}>Novo lançamento</h2><button onClick={onClose}><I.x size={18} color={C.inkSoft}/></button></div>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div><label style={label}>Origem</label>
+              <select value={profId} onChange={e=>{setProfId(e.target.value);setPacId("");setDescricao("");}} style={campo}>{profs.map(o=><option key={o.id} value={o.id}>{o.nome}</option>)}</select></div>
+            <div><label style={label}>Mês</label>
+              <select value={mes} onChange={e=>setMes(Number(e.target.value))} style={campo}>{MESES.map((m,i)=><option key={i} value={i+1}>{m}</option>)}</select></div>
+          </div>
+          {!ehServico ? (
+            <div><label style={label}>Paciente</label>
+              <select value={pacId} onChange={e=>setPacId(e.target.value)} style={campo}>
+                <option value="">Selecione…</option>{pacientes.map(p=><option key={p.id} value={p.id}>{p.nome}</option>)}
+              </select>
+              <p style={{fontSize:11,color:C.inkFaint,marginTop:5}}>Paciente novo? Cadastre antes na aba Pacientes.</p>
+            </div>
+          ) : (
+            <div><label style={label}>Descrição</label>
+              <input style={campo} placeholder="Ex: Almofadas, aluguel…" value={descricao} onChange={e=>setDescricao(e.target.value)}/></div>
+          )}
+          <div><label style={label}>Valor recebido (R$)</label>
+            <input style={campo} placeholder="0,00" inputMode="decimal" value={valor} onChange={e=>setValor(e.target.value.replace(",","."))}/>
+            {prof && Number(prof.repasse_studio)<1 && Number(valor)>0 &&
+              <p style={{fontSize:11,color:C.terra,marginTop:5}}>Entra no caixa: {brl(Number(valor)*prof.repasse_studio)} (repasse {Math.round(prof.repasse_studio*100)}%)</p>}
+          </div>
+        </div>
+        <div className="flex gap-3 mt-6">
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl font-semibold transition hover:opacity-80" style={{background:C.surfaceAlt,color:C.inkSoft,border:`1px solid ${C.border}`}}>Cancelar</button>
+          <button disabled={!valido||salvando} onClick={salvar} className="flex-1 py-2.5 rounded-xl font-semibold text-white transition hover:opacity-90" style={{background:valido?C.terra:C.inkFaint,cursor:valido?"pointer":"not-allowed"}}>{salvando?"Salvando…":"Salvar"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════ RAIZ ═════════════════════════════════════ */
+function Root(){
+  const [sessao,setSessao]=useState(null);
+  const [pronto,setPronto]=useState(false);
+  useEffect(()=>{
+    sb.auth.getSession().then(({data})=>{ setSessao(data.session); setPronto(true); });
+    const { data:sub } = sb.auth.onAuthStateChange((_e,s)=>setSessao(s));
+    return ()=>sub.subscription.unsubscribe();
+  },[]);
+  if(!CONFIG_OK) return <ConfigAviso/>;
+  if(!pronto) return <Carregando/>;
+  if(!sessao) return <Login onEntrar={()=>{}}/>;
+  return <App sessao={sessao}/>;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<Root/>);
+
+</script>
+</body>
+</html>
