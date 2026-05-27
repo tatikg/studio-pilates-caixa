@@ -50,7 +50,6 @@
 const SUPABASE_URL = "https://brmxylsmifngcyehildz.supabase.co";       // ex: https://abcdefg.supabase.co
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJybXh5bHNtaWZuZ2N5ZWhpbGR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2NDU1ODQsImV4cCI6MjA5NTIyMTU4NH0.cbk-CD33yMx_GSqHGwSe8jmsVysTw1PgESuBO-Rikyw";   // a chave "anon public"
 
-
 /* ──────────────────────────────────────────────────────────────────────── */
 const { useState, useEffect, useMemo } = React;
 const { createClient } = window.supabase || {};
@@ -606,7 +605,9 @@ function ModalLancamento({lancamento,profs,pacientes,onClose,onSave}){
   const [dataPag,setDataPag]=useState(ed?(ed.data_pagamento?String(ed.data_pagamento).slice(0,10):""):new Date().toISOString().slice(0,10));
   const [salvando,setSalvando]=useState(false);
   const prof=profs.find(p=>p.id===profId);
-  const ehServico=prof&&prof.tipo==="servico";
+  // Mostra lista de pacientes para tipo='profissional'; descrição livre para 'servico'.
+  // O RPG foi corrigido para 'profissional' no banco (05_fix_rpg.sql).
+  const ehServico = prof?.tipo === "servico";
   const valido=Number(valor)>0 && profId && (pacId || descricao.trim());
   const campo={background:C.surfaceAlt,border:`1px solid ${C.border}`,color:C.ink,borderRadius:10,padding:"10px 12px",fontSize:14,width:"100%",outline:"none"};
   const label={fontSize:12,fontWeight:600,color:C.inkSoft,marginBottom:6,display:"block"};
